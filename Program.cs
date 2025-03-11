@@ -3,6 +3,10 @@ using Hangfire.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using TaskManagementSystem.Database;
+using TaskManagementSystem.Repository.Implementations;
+using TaskManagementSystem.Repository.Interfaces;
+using TaskManagementSystem.Services.Implementations;
+using TaskManagementSystem.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +24,10 @@ builder.Services.AddEntityFrameworkNpgsql().AddDbContext<TaskDbContext>(options 
 builder.Services.AddHangfire(config =>
     config.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddHangfireServer();
+
+// Register specific repositories and services
+builder.Services.AddScoped<ITaskRepository, TaskRepository>();
+builder.Services.AddScoped<ITaskService, TaskService>();
 
 var app = builder.Build();
 
