@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using TaskManagementSystem.Database;
 using TaskManagementSystem.Models;
+using TaskManagementSystem.Services.Interfaces;
 
 namespace TaskManagementSystem.Controllers
 {
@@ -9,12 +9,12 @@ namespace TaskManagementSystem.Controllers
     [ApiController]
     public class TaskModelsController : ControllerBase
     {
-        private readonly TaskDbContext _context;
+        private readonly ITaskService _taskService;
         private readonly ILogger<TaskModelsController> _logger;
 
-        public TaskModelsController(TaskDbContext context, ILogger<TaskModelsController> logger)
+        public TaskModelsController(ITaskService taskService, ILogger<TaskModelsController> logger)
         {
-            _context = context;
+            _taskService = taskService;
             _logger = logger;
         }
 
@@ -23,17 +23,18 @@ namespace TaskManagementSystem.Controllers
         public async Task<ActionResult<IEnumerable<TaskModel>>> GetTasks()
         {
             _logger.LogInformation("Fetching Tasks");
-            return await _context.Tasks.ToListAsync();
+            return await _taskService.GetAllAsync();
         }
 
         // GET: api/TaskModels/5
         [HttpGet("{id}")]
         public async Task<ActionResult<TaskModel>> GetTaskModel(int id)
         {
-            var taskModel = await _context.Tasks.FindAsync(id);
+            var taskModel = await _taskService.GetByIdAsync(id);
 
             if (taskModel == null)
             {
+                _logger.LogError($"Task with id {id} not found");
                 return NotFound();
             }
 
@@ -47,19 +48,19 @@ namespace TaskManagementSystem.Controllers
         {
             if (id != taskModel.Id)
             {
+                _logger.LogError($"Task id {id} does not match task id {taskModel.Id}");
                 return BadRequest();
             }
 
-            _context.Entry(taskModel).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                await _taskService.UpdateAsync(taskModel);
             }
             catch (DbUpdateConcurrencyException)
             {
                 if (!TaskModelExists(id))
                 {
+                    _logger.LogError($"Task with id {id} not found");
                     return NotFound();
                 }
                 else
@@ -76,8 +77,7 @@ namespace TaskManagementSystem.Controllers
         [HttpPost]
         public async Task<ActionResult<TaskModel>> PostTaskModel(TaskModel taskModel)
         {
-            _context.Tasks.Add(taskModel);
-            await _context.SaveChangesAsync();
+            await _taskService.AddAsync(taskModel);
 
             return CreatedAtAction("GetTaskModel", new { id = taskModel.Id }, taskModel);
         }
@@ -86,21 +86,19 @@ namespace TaskManagementSystem.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTaskModel(int id)
         {
-            var taskModel = await _context.Tasks.FindAsync(id);
-            if (taskModel == null)
+            var taskId = await _taskService.DeleteAsync(id);
+            if (taskId == 0)
             {
+                _logger.LogError($"Task with id {id} not found");
                 return NotFound();
             }
-
-            _context.Tasks.Remove(taskModel);
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
         private bool TaskModelExists(int id)
         {
-            return _context.Tasks.Any(e => e.Id == id);
+            return _taskService.GetByIdAsync(id) != null;
         }
     }
 }
