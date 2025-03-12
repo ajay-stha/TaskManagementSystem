@@ -1,10 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TaskManagementSystem.Database;
+using TaskManagementSystem.Models;
 using TaskManagementSystem.Repository.Interfaces;
 
 namespace TaskManagementSystem.Repository.Implementations
 {
-    public abstract class BaseRepository<T> : IBaseRepository<T> where T : class
+    public abstract class BaseRepository<T> : IBaseRepository<T> where T : class, IEntity
     {
         protected readonly TaskDbContext _context;
         protected BaseRepository(TaskDbContext context)
@@ -16,7 +17,7 @@ namespace TaskManagementSystem.Repository.Implementations
 
         public async Task<T> GetByIdAsync(int id)
         {
-            return await _context.Set<T>().FirstAsync(e => GetId(e) == id);
+            return await _context.Set<T>().FirstAsync(e => e.Id == id);
         }
 
         public async Task<int> AddAsync(T entity)
@@ -34,7 +35,7 @@ namespace TaskManagementSystem.Repository.Implementations
 
         public async Task<int> DeleteAsync(int id)
         {
-            var entity = await _context.Set<T>().FirstOrDefaultAsync(e => GetId(e) == id);
+            var entity = await _context.Set<T>().FirstOrDefaultAsync(e => e.Id == id);
             if (entity != null)
             {
                 _context.Remove(entity);
@@ -42,7 +43,5 @@ namespace TaskManagementSystem.Repository.Implementations
             }
             return 0;
         }
-
-        protected abstract int GetId(T entity);
     }
 }
