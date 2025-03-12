@@ -5,8 +5,7 @@ using Serilog;
 using TaskManagementSystem.Database;
 using TaskManagementSystem.Repository.Implementations;
 using TaskManagementSystem.Repository.Interfaces;
-using TaskManagementSystem.Services.Implementations;
-using TaskManagementSystem.Services.Interfaces;
+using TaskManagementSystem.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,20 +13,23 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddControllers();
+builder.Services.AddHangfireServer();
+
 builder.Host.UseSerilog((context, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration));
-builder.Services.AddControllers();
 
-builder.Services.AddEntityFrameworkNpgsql().AddDbContext<TaskDbContext>(options =>
+builder.Services.AddDbContext<TaskDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddHangfire(config =>
-    config.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddHangfireServer();
+    config.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+          .UseRecommendedSerializerSettings()
+          .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
 
-// Register specific repositories and services
+builder.Services.AddHttpClient<ExternalApiService>();
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
-builder.Services.AddScoped<ITaskService, TaskService>();
+builder.Services.AddScoped<TaskService>();
 
 var app = builder.Build();
 
