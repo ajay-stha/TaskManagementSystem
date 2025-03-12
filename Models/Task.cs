@@ -2,7 +2,7 @@
 
 namespace TaskManagementSystem.Models
 {
-    public class TaskModel
+    public class TaskModel : IEntity
     {
         public int Id { get; set; }
         public string Title { get; set; } = string.Empty;
