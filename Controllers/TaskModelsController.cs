@@ -1,7 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Hangfire;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaskManagementSystem.Models;
-using TaskManagementSystem.Services.Interfaces;
+using TaskManagementSystem.Services;
 
 namespace TaskManagementSystem.Controllers
 {
@@ -9,10 +10,10 @@ namespace TaskManagementSystem.Controllers
     [ApiController]
     public class TaskModelsController : ControllerBase
     {
-        private readonly ITaskService _taskService;
+        private readonly TaskService _taskService;
         private readonly ILogger<TaskModelsController> _logger;
 
-        public TaskModelsController(ITaskService taskService, ILogger<TaskModelsController> logger)
+        public TaskModelsController(TaskService taskService, ILogger<TaskModelsController> logger)
         {
             _taskService = taskService;
             _logger = logger;
@@ -22,23 +23,39 @@ namespace TaskManagementSystem.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TaskModel>>> GetTasks()
         {
-            _logger.LogInformation("Fetching Tasks");
-            return await _taskService.GetAllAsync();
+            try
+            {
+                _logger.LogInformation("Fetching Tasks");
+                return await _taskService.GetAllAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching tasks");
+                return StatusCode(500, "Internal server error");
+            }
         }
-
+            
         // GET: api/TaskModels/5
         [HttpGet("{id}")]
         public async Task<ActionResult<TaskModel>> GetTaskModel(int id)
         {
-            var taskModel = await _taskService.GetByIdAsync(id);
-
-            if (taskModel == null)
+            try
             {
-                _logger.LogError($"Task with id {id} not found");
-                return NotFound();
-            }
+                var taskModel = await _taskService.GetByIdAsync(id);
 
-            return taskModel;
+                if (taskModel == null)
+                {
+                    _logger.LogError($"Task with id {id} not found");
+                    return NotFound();
+                }
+
+                return taskModel;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"An error occurred while fetching task with id {id}");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         // PUT: api/TaskModels/5
@@ -68,6 +85,11 @@ namespace TaskManagementSystem.Controllers
                     throw;
                 }
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"An error occurred while updating task with id {id}");
+                return StatusCode(500, "Internal server error");
+            }
 
             return NoContent();
         }
@@ -77,28 +99,52 @@ namespace TaskManagementSystem.Controllers
         [HttpPost]
         public async Task<ActionResult<TaskModel>> PostTaskModel(TaskModel taskModel)
         {
-            await _taskService.AddAsync(taskModel);
-
-            return CreatedAtAction("GetTaskModel", new { id = taskModel.Id }, taskModel);
+            try
+            {
+                await _taskService.AddAsync(taskModel);
+                BackgroundJob.Schedule(() => _taskService.ExecuteTask(taskModel.Id), taskModel.ExecutionDateTime - DateTime.UtcNow);
+                return CreatedAtAction("GetTaskModel", new { id = taskModel.Id }, taskModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while creating a new task");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         // DELETE: api/TaskModels/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTaskModel(int id)
         {
-            var taskId = await _taskService.DeleteAsync(id);
-            if (taskId == 0)
+            try
             {
-                _logger.LogError($"Task with id {id} not found");
-                return NotFound();
-            }
+                var taskId = await _taskService.DeleteAsync(id);
+                if (taskId == 0)
+                {
+                    _logger.LogError($"Task with id {id} not found");
+                    return NotFound();
+                }
 
-            return NoContent();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"An error occurred while deleting task with id {id}");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         private bool TaskModelExists(int id)
         {
-            return _taskService.GetByIdAsync(id) != null;
+            try
+            {
+                return _taskService.GetByIdAsync(id) != null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"An error occurred while checking if task with id {id} exists");
+                return false;
+            }
         }
     }
 }
