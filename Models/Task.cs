@@ -10,6 +10,6 @@ namespace TaskManagementSystem.Models
         public DateTime ExecutionDateTime { get; set; }
         public TaskStatusEnum Status { get; set; } = TaskStatusEnum.Pending;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
     }
 }
