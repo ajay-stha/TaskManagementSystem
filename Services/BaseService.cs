@@ -1,9 +1,8 @@
-using TaskManagementSystem.Service.Interfaces;
 using TaskManagementSystem.Repository.Interfaces;
 
-namespace TaskManagementSystem.Service.Implementations
+namespace TaskManagementSystem.Services
 {
-    public class BaseService<T> : IBaseService<T> where T : class
+    public class BaseService<T> where T : class
     {
         private readonly IBaseRepository<T> _repository;
 
